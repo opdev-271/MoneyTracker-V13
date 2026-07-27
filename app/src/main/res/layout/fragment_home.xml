@@ -284,8 +284,10 @@
                 xmlns:app="http://schemas.android.com/apk/res-auto" />
         </LinearLayout>
 
-        <!-- Latest transactions sheet: 0dp + weight so it always runs to the bottom
-             of the viewport instead of ending mid-screen. -->
+        <!-- Latest transactions sheet: 0dp + weight so it always runs to the bottom of the
+             viewport - which now reaches the bottom edge of the screen, behind the nav pill,
+             so the sheet never closes off mid-screen. The bottom padding is what keeps its
+             rows scrollable clear of the pill. -->
         <LinearLayout
             android:id="@+id/sheet_transactions"
             android:layout_width="match_parent"
@@ -298,7 +300,7 @@
             android:paddingStart="@dimen/screen_padding"
             android:paddingTop="20dp"
             android:paddingEnd="@dimen/screen_padding"
-            android:paddingBottom="12dp">
+            android:paddingBottom="@dimen/bottom_nav_inset">
 
             <LinearLayout
                 android:layout_width="match_parent"

@@ -64,9 +64,28 @@ public class MainActivity extends AppCompatActivity {
             return handled;
         });
         bottomNavigation.setOnItemReselectedListener(item -> animateNavIcon(item.getItemId()));
+        bottomNavigation.post(() -> unclipNavIconContainers(bottomNavigation));
 
         findViewById(R.id.btn_quick_add).setOnClickListener(v ->
                 startActivity(AddTransactionActivity.newIntent(this, Category.TYPE_EXPENSE, -1L)));
+    }
+
+    /**
+     * Material sizes each item's icon container to exactly the icon, so an icon that hops
+     * even a pixel gets clipped against it (and against the menu row above that) - which
+     * showed up as the home/wallet icon losing its top or bottom edge mid-animation. The
+     * pill itself has room to spare around the icons, so letting these containers draw
+     * outside their bounds is enough; the hop stays well inside the pill.
+     */
+    private static void unclipNavIconContainers(ViewGroup root) {
+        root.setClipChildren(false);
+        root.setClipToPadding(false);
+        for (int i = 0; i < root.getChildCount(); i++) {
+            View child = root.getChildAt(i);
+            if (child instanceof ViewGroup) {
+                unclipNavIconContainers((ViewGroup) child);
+            }
+        }
     }
 
     /** Per-tab tap animation: home/wallet icons hop; analytics bars wave and the
@@ -88,10 +107,12 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         View target = iconView != null ? iconView : itemView;
-        float hop = -6f * getResources().getDisplayMetrics().density;
+        float hop = -5f * getResources().getDisplayMetrics().density;
+        target.animate().cancel();
+        target.setTranslationY(0f);
         target.animate().translationY(hop).setDuration(160)
                 .withEndAction(() -> target.animate().translationY(0f).setDuration(320)
-                        .setInterpolator(new OvershootInterpolator(2.5f)).start())
+                        .setInterpolator(new OvershootInterpolator(1.6f)).start())
                 .start();
     }
 

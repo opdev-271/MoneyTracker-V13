@@ -22,6 +22,8 @@ import com.moneytracker.app.util.CurrencyFormatter;
 import com.moneytracker.app.util.DisplayNameResolver;
 import com.moneytracker.app.util.ViewAnimations;
 
+import java.util.List;
+
 /**
  * Horizontal "My Cards" carousel on Home: each account rendered as a bank-card
  * shaped tile filled with the account's color, with black/white content picked
@@ -36,10 +38,14 @@ public class AccountCardAdapter extends ListAdapter<AccountWithBalance, AccountC
         void onAccountCardClick(AccountWithBalance item);
     }
 
+    /** Marks a rebind that only flips the balance between masked and readable. Sending it as
+     * a payload keeps RecyclerView on the same ViewHolder instead of cross-fading in a second
+     * copy of the card, which used to leave the old, unmasked amount on screen. */
+    private static final Object PAYLOAD_BALANCE_VISIBILITY = new Object();
+
     private final OnAccountCardClickListener listener;
     private final int[] highestAnimatedPosition = {-1};
     private boolean balancesHidden;
-    private boolean animateNextMask;
 
     public AccountCardAdapter(OnAccountCardClickListener listener) {
         super(DIFF_CALLBACK);
@@ -49,10 +55,7 @@ public class AccountCardAdapter extends ListAdapter<AccountWithBalance, AccountC
     public void setBalancesHidden(boolean hidden) {
         if (balancesHidden != hidden) {
             balancesHidden = hidden;
-            // Only the hide direction gets the progressive digit-mask animation; the
-            // rebind this triggers consumes the flag per card.
-            animateNextMask = hidden;
-            notifyItemRangeChanged(0, getItemCount());
+            notifyItemRangeChanged(0, getItemCount(), PAYLOAD_BALANCE_VISIBILITY);
         }
     }
 
@@ -65,11 +68,19 @@ public class AccountCardAdapter extends ListAdapter<AccountWithBalance, AccountC
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        holder.bind(getItem(position), listener, balancesHidden, animateNextMask);
+        holder.bind(getItem(position), listener, balancesHidden, false);
         ViewAnimations.animateItemEntranceOnce(holder.itemView, position, highestAnimatedPosition);
-        if (position == getItemCount() - 1) {
-            animateNextMask = false;
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position, @NonNull List<Object> payloads) {
+        if (payloads.contains(PAYLOAD_BALANCE_VISIBILITY)) {
+            // Only the hide direction gets the progressive digit-mask animation; revealing
+            // snaps straight back to the amount.
+            holder.bindBalance(getItem(position), balancesHidden, balancesHidden);
+            return;
         }
+        super.onBindViewHolder(holder, position, payloads);
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
@@ -102,19 +113,26 @@ public class AccountCardAdapter extends ListAdapter<AccountWithBalance, AccountC
             textCurrency.setTextColor(onCardMuted);
             textName.setText(DisplayNameResolver.resolve(itemView.getContext(), item.account.getName()));
             textName.setTextColor(onCardMuted);
-            if (balancesHidden) {
-                if (animateMask) {
-                    textBalance.setText(CurrencyFormatter.format(item.balance, item.account.getCurrencyCode()));
-                    ViewAnimations.animateTextMasking(textBalance, HIDDEN_BALANCE_TEXT);
-                } else {
-                    textBalance.setText(HIDDEN_BALANCE_TEXT);
-                }
-            } else {
-                textBalance.setText(CurrencyFormatter.format(item.balance, item.account.getCurrencyCode()));
-            }
+            bindBalance(item, balancesHidden, animateMask);
             textBalance.setTextColor(onCard);
 
             itemView.setOnClickListener(v -> listener.onAccountCardClick(item));
+        }
+
+        /** The one place the card's amount is written, so a partial (payload) rebind can
+         * reuse it without touching colors, name or click handling. */
+        void bindBalance(AccountWithBalance item, boolean balancesHidden, boolean animateMask) {
+            String amount = CurrencyFormatter.format(item.balance, item.account.getCurrencyCode());
+            if (!balancesHidden) {
+                ViewAnimations.cancelTextMasking(textBalance);
+                textBalance.setText(amount);
+            } else if (animateMask) {
+                textBalance.setText(amount);
+                ViewAnimations.animateTextMasking(textBalance, HIDDEN_BALANCE_TEXT);
+            } else {
+                ViewAnimations.cancelTextMasking(textBalance);
+                textBalance.setText(HIDDEN_BALANCE_TEXT);
+            }
         }
     }
 

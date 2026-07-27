@@ -228,10 +228,6 @@ public class HomeFragment extends Fragment {
             boolean empty = latestTransactions.isEmpty();
             binding.textEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
             binding.recyclerTransactions.setVisibility(empty ? View.GONE : View.VISIBLE);
-            // Empty sheet reads as a closed rounded card; a populated one runs off the
-            // bottom of the screen with no closing line.
-            binding.sheetTransactions.setBackgroundResource(
-                    empty ? R.drawable.bg_sheet_closed : R.drawable.bg_sheet);
         });
     }
 
